@@ -1,21 +1,82 @@
-import { useState } from "react";
 import { User, Palette, IndianRupee } from "lucide-react";
+import { useEffect, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
+import api from "../../services/api";
+import { successAlert, errorAlert } from "../../utils/alert";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
-  const [logoPreview, setLogoPreview] = useState(null);
 
-  const handleLogoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) setLogoPreview(URL.createObjectURL(file));
-  };
+  // Profile state
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Branding (future use)
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [brandName, setBrandName] = useState("");
 
   const tabs = [
     { key: "profile", label: "Profile", icon: User },
     { key: "branding", label: "Branding", icon: Palette },
     { key: "pricing", label: "Card Pricing", icon: IndianRupee },
   ];
+
+  /* ======================
+     FETCH PROFILE
+  ====================== */
+  useEffect(() => {
+    setProfileLoading(true);
+
+    api
+      .get("/profile")
+      .then((res) => {
+        setName(res.data.user.name);
+        setEmail(res.data.user.email);
+      })
+      .catch(() => {
+        errorAlert("Error", "Failed to load profile");
+      })
+      .finally(() => {
+        setProfileLoading(false);
+      });
+  }, []);
+
+  /* ======================
+     SAVE PROFILE
+  ====================== */
+  const handleProfileSave = async () => {
+    if (password && password !== confirmPassword) {
+      errorAlert("Validation Error", "Passwords do not match");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await api.post("/settings/profile", {
+        name,
+        email,
+        password,
+        password_confirmation: confirmPassword,
+      });
+
+      successAlert("Profile Updated", "Profile updated successfully");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (e) {
+      errorAlert(
+        "Update Failed",
+        e.response?.data?.message || "Something went wrong",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -56,31 +117,55 @@ export default function Settings() {
           {/* PROFILE */}
           {activeTab === "profile" && (
             <section>
-              <h3 className="text-lg font-semibold mb-1">Profile Settings</h3>
-              <p className="text-sm text-slate-500 mb-6">
-                Update your personal details and password
-              </p>
+              {profileLoading ? (
+                <ProfileSkeleton />
+              ) : (
+                <>
+                  <h3 className="text-lg font-semibold mb-1">
+                    Profile Settings
+                  </h3>
+                  <p className="text-sm text-slate-500 mb-6">
+                    Update your personal details and password
+                  </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Admin Name" placeholder="Your name" />
-                <Input label="Email Address" placeholder="you@email.com" />
-                <Input
-                  label="New Password"
-                  type="password"
-                  placeholder="••••••••"
-                />
-                <Input
-                  label="Confirm Password"
-                  type="password"
-                  placeholder="••••••••"
-                />
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Admin Name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                    <Input
+                      label="Email Address"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                    <Input
+                      label="New Password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    <Input
+                      label="Confirm Password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
 
-              <PrimaryButton className="mt-8">Save Profile</PrimaryButton>
+                  <PrimaryButton
+                    className="mt-8"
+                    onClick={handleProfileSave}
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Save Profile"}
+                  </PrimaryButton>
+                </>
+              )}
             </section>
           )}
 
-          {/* BRANDING */}
+          {/* BRANDING (UI only for now) */}
           {activeTab === "branding" && (
             <section>
               <h3 className="text-lg font-semibold mb-1">Branding</h3>
@@ -88,46 +173,15 @@ export default function Settings() {
                 Customize your organization branding
               </p>
 
-              <div className="flex items-center gap-6">
-                <div
-                  className="h-24 w-24 rounded-xl border bg-slate-50
-                                flex items-center justify-center overflow-hidden"
-                >
-                  {logoPreview ? (
-                    <img
-                      src={logoPreview}
-                      alt="Logo Preview"
-                      className="h-full object-contain"
-                    />
-                  ) : (
-                    <span className="text-slate-400 text-xs">No Logo</span>
-                  )}
-                </div>
-
-                <label
-                  className="cursor-pointer px-5 py-2.5 rounded-xl
-                                  bg-slate-900 text-white text-sm font-medium
-                                  hover:bg-slate-800 transition"
-                >
-                  Upload Logo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              <p className="text-sm text-slate-500 mt-4">
-                Recommended: 200×200 PNG or SVG
-              </p>
-
-              <PrimaryButton className="mt-8">Save Branding</PrimaryButton>
+              <Input
+                label="Brand Name"
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
+              />
             </section>
           )}
 
-          {/* PRICING */}
+          {/* PRICING (UI only for now) */}
           {activeTab === "pricing" && (
             <section>
               <h3 className="text-lg font-semibold mb-1">Card Pricing</h3>
@@ -135,16 +189,8 @@ export default function Settings() {
                 Configure pricing per digital card
               </p>
 
-              <div className="max-w-sm space-y-4">
-                <Input
-                  label="Price per card (₹)"
-                  type="number"
-                  placeholder="49"
-                />
-                <Input label="Minimum cards" type="number" placeholder="10" />
-              </div>
-
-              <PrimaryButton className="mt-8">Save Pricing</PrimaryButton>
+              <Input label="Price per card (₹)" type="number" />
+              <Input label="Minimum cards" type="number" />
             </section>
           )}
         </div>
@@ -153,11 +199,11 @@ export default function Settings() {
   );
 }
 
-/* =====================
-   REUSABLE UI PARTS
-===================== */
+/* ======================
+   REUSABLE COMPONENTS
+====================== */
 
-function Input({ label, type = "text", placeholder }) {
+function Input({ label, type = "text", value, onChange }) {
   return (
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -165,7 +211,8 @@ function Input({ label, type = "text", placeholder }) {
       </label>
       <input
         type={type}
-        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
         className="w-full rounded-xl border border-slate-300 px-4 py-2.5
                    focus:ring-2 focus:ring-indigo-500 focus:outline-none"
       />
@@ -173,16 +220,39 @@ function Input({ label, type = "text", placeholder }) {
   );
 }
 
-function PrimaryButton({ children, className = "" }) {
+function PrimaryButton({ children, className = "", ...props }) {
   return (
     <button
+      type="button"
       className={`inline-flex items-center justify-center
-                  px-6 py-2.5 rounded-xl
-                  bg-indigo-600 text-white text-sm font-semibold
-                  hover:bg-indigo-700 transition shadow
-                  ${className}`}
+        px-6 py-2.5 rounded-xl
+        bg-indigo-600 text-white text-sm font-semibold
+        hover:bg-indigo-700 transition shadow
+        disabled:opacity-60 disabled:cursor-not-allowed
+        ${className}`}
+      {...props}
     >
       {children}
     </button>
+  );
+}
+
+function ProfileSkeleton() {
+  return (
+    <>
+      <div className="h-6 w-48 bg-slate-200 rounded mb-2 animate-pulse" />
+      <div className="h-4 w-72 bg-slate-200 rounded mb-6 animate-pulse" />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i}>
+            <div className="h-4 w-24 bg-slate-200 rounded mb-2 animate-pulse" />
+            <div className="h-11 bg-slate-200 rounded-xl animate-pulse" />
+          </div>
+        ))}
+      </div>
+
+      <div className="h-10 w-36 bg-slate-200 rounded-xl mt-8 animate-pulse" />
+    </>
   );
 }

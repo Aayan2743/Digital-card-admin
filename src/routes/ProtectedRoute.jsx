@@ -1,10 +1,33 @@
+// import { Navigate } from "react-router-dom";
+// import { useAuth } from "../context/AuthContext";
+
+// export default function ProtectedRoute({ children }) {
+//   const { isAuthenticated, loading } = useAuth();
+
+//   if (loading) return <div>Loading...</div>;
+
+//   return isAuthenticated ? children : <Navigate to="/login" replace />;
+// }
+
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (loading) return <div>Loading...</div>;
+  // ⏳ Wait for auth check
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <span>Loading...</span>
+      </div>
+    );
+  }
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  // 🔐 Not authenticated
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
 }
