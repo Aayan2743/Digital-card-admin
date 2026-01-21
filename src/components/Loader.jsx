@@ -1,9 +1,22 @@
-export default function Loader() {
+export default function Loader({ show, text = "Loading..." }) {
+  if (!show) return null;
+
   return (
-    <div className="h-screen flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        <span className="text-slate-600 text-sm">Loading...</span>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="flex flex-col items-center">
+        {/* Logo */}
+        <div className="h-20 w-20 rounded-full bg-white shadow-xl flex items-center justify-center animate-pulse">
+          <img
+            src="/logo.jpeg"
+            alt="Loading"
+            className="h-12 w-12 object-contain animate-spin-slow"
+          />
+        </div>
+
+        {/* Text */}
+        <p className="mt-4 text-white text-sm tracking-wide animate-fade">
+          {text}
+        </p>
       </div>
     </div>
   );

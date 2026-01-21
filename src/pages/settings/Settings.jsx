@@ -4,8 +4,13 @@ import AdminLayout from "../../components/layout/AdminLayout";
 import api from "../../services/api";
 import { successAlert, errorAlert } from "../../utils/alert";
 
+import Loader from "../../components/Loader";
+import { setFavicon, resetFavicon } from "../../utils/favicon";
+
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
+
+  const [loading, setLoading] = useState(false);
 
   // Profile state
   const [profileLoading, setProfileLoading] = useState(true);
@@ -19,6 +24,13 @@ export default function Settings() {
   // Branding (future use)
   const [logoPreview, setLogoPreview] = useState(null);
   const [brandName, setBrandName] = useState("");
+  const [faviconPreview, setFaviconPreview] = useState(null);
+
+  const [logoFile, setLogoFile] = useState(null);
+  const [faviconFile, setFaviconFile] = useState(null);
+
+  const [cardAmount, setCardAmount] = useState("");
+  const [minCard, setMinCard] = useState("");
 
   const tabs = [
     { key: "profile", label: "Profile", icon: User },
@@ -54,6 +66,7 @@ export default function Settings() {
       errorAlert("Validation Error", "Passwords do not match");
       return;
     }
+    setLoading(true);
 
     setSaving(true);
 
@@ -75,8 +88,130 @@ export default function Settings() {
       );
     } finally {
       setSaving(false);
+      setLoading(false);
     }
   };
+
+  const handleSaveBranding = async () => {
+    try {
+      setSaving(true);
+      setLoading(true);
+
+      const formData = new FormData();
+      formData.append("brand_name", brandName);
+
+      if (logoFile) {
+        formData.append("logo", logoFile);
+      }
+
+      if (faviconFile) {
+        formData.append("favicon", faviconFile);
+      }
+
+      await api.post("/settings/brand", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      successAlert("Saved", "Branding updated successfully");
+
+      // 🔄 Refresh branding after save
+      fetchBranding();
+    } catch (error) {
+      errorAlert(
+        "Failed",
+        error.response?.data?.message || "Unable to save branding",
+      );
+    } finally {
+      setSaving(false);
+      setLoading(false);
+    }
+  };
+
+  const fetchBranding = async () => {
+    try {
+      // setLoading(true);
+
+      const res = await api.get("/settings/brand");
+
+      const data = res.data.data;
+
+      setBrandName(data?.brand_name || "");
+      setLogoPreview(data?.logo || null);
+      setFaviconPreview(data?.favicon || null);
+
+      if (data?.favicon) {
+        setFavicon(data.favicon);
+      }
+    } catch (error) {
+      errorAlert("Error", "Failed to load branding");
+    } finally {
+      // setLoading(false);
+    }
+  };
+
+  const fetchCardPricing = async () => {
+    try {
+      // setLoading(true);
+
+      const res = await api.get("/settings/card-pricing");
+
+      if (res.data.data) {
+        setCardAmount(res.data.data.card_amount || "");
+        setMinCard(res.data.data.min_card || "");
+      }
+    } catch (error) {
+      errorAlert("Error", "Failed to load card pricing");
+    } finally {
+      // setLoading(false);
+    }
+  };
+
+  const handleSavePricing = async () => {
+    try {
+      setSaving(true);
+
+      await api.post("/settings/card-pricing", {
+        card_amount: cardAmount,
+        min_card: minCard,
+      });
+
+      successAlert("Saved", "Card pricing updated successfully");
+      fetchCardPricing();
+    } catch (error) {
+      errorAlert(
+        "Failed",
+        error.response?.data?.message || "Unable to save pricing",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!faviconPreview) return;
+
+    let link =
+      document.querySelector("link[rel~='icon']") ||
+      document.createElement("link");
+
+    link.rel = "icon";
+    link.href = faviconPreview;
+    document.head.appendChild(link);
+  }, [faviconPreview]);
+
+  useEffect(() => {
+    if (activeTab === "branding") {
+      fetchBranding();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "pricing") {
+      fetchCardPricing();
+    }
+  }, [activeTab]);
 
   return (
     <AdminLayout>
@@ -115,6 +250,8 @@ export default function Settings() {
         {/* CONTENT */}
         <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm p-8">
           {/* PROFILE */}
+          <Loader show={loading} text="Profile Loading..." />
+
           {activeTab === "profile" && (
             <section>
               {profileLoading ? (
@@ -167,30 +304,185 @@ export default function Settings() {
 
           {/* BRANDING (UI only for now) */}
           {activeTab === "branding" && (
-            <section>
-              <h3 className="text-lg font-semibold mb-1">Branding</h3>
-              <p className="text-sm text-slate-500 mb-6">
-                Customize your organization branding
-              </p>
+            <section className="space-y-8">
+              {/* Header */}
+              <div>
+                <h3 className="text-lg font-semibold">Branding</h3>
+                <p className="text-sm text-slate-500">
+                  Customize your organization branding
+                </p>
+              </div>
 
-              <Input
-                label="Brand Name"
-                value={brandName}
-                onChange={(e) => setBrandName(e.target.value)}
-              />
+              {/* Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* -------- Brand Logo Card -------- */}
+                <div className="rounded-xl border bg-white p-5">
+                  <h4 className="font-medium mb-4">Brand Logo</h4>
+
+                  <div className="flex items-center gap-4">
+                    <div className="h-20 w-20 rounded-lg border border-dashed flex items-center justify-center overflow-hidden bg-slate-50">
+                      {logoPreview ? (
+                        <img
+                          src={logoPreview}
+                          alt="Brand Logo"
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-xs text-slate-400">No Logo</span>
+                      )}
+                    </div>
+
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          setLogoFile(file);
+                          setLogoPreview(URL.createObjectURL(file));
+                        }}
+                      />
+                      <span className="px-4 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white">
+                        Upload Logo
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* -------- Favicon Card -------- */}
+                <div className="rounded-xl border bg-white p-5">
+                  <h4 className="font-medium mb-4">Favicon</h4>
+
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded border border-dashed flex items-center justify-center overflow-hidden bg-slate-50">
+                      {faviconPreview ? (
+                        <img
+                          src={faviconPreview}
+                          alt="Favicon"
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-slate-400">
+                          Default
+                        </span>
+                      )}
+                    </div>
+
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".ico,image/png,image/svg+xml"
+                        hidden
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          setFaviconFile(file);
+                          setFaviconPreview(URL.createObjectURL(file));
+                        }}
+                      />
+                      <span className="px-4 py-2 text-sm rounded-lg bg-slate-800 hover:bg-slate-900 text-white">
+                        Upload Favicon
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetFavicon();
+                        setFaviconPreview(null);
+                        setFaviconFile(null);
+                      }}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Restore default
+                    </button>
+
+                    <span className="text-xs text-slate-400">
+                      32×32 PNG or ICO
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* -------- Brand Name -------- */}
+              <div className="max-w-xl">
+                <Input
+                  label="Brand Name"
+                  value={brandName}
+                  onChange={(e) => setBrandName(e.target.value)}
+                />
+              </div>
+
+              {/* -------- Save Action -------- */}
+              <div className="flex justify-end border-t pt-6">
+                <button
+                  type="button"
+                  onClick={handleSaveBranding}
+                  disabled={saving}
+                  className={`px-6 py-2 rounded-lg font-medium flex items-center gap-2
+          ${
+            saving
+              ? "bg-indigo-400 cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-700"
+          } text-white`}
+                >
+                  {saving && (
+                    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
+                  {saving ? "Saving..." : "Save Branding"}
+                </button>
+              </div>
             </section>
           )}
 
           {/* PRICING (UI only for now) */}
           {activeTab === "pricing" && (
-            <section>
-              <h3 className="text-lg font-semibold mb-1">Card Pricing</h3>
-              <p className="text-sm text-slate-500 mb-6">
-                Configure pricing per digital card
-              </p>
+            <section className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold">Card Pricing</h3>
+                <p className="text-sm text-slate-500">
+                  Configure pricing per digital card
+                </p>
+              </div>
 
-              <Input label="Price per card (₹)" type="number" />
-              <Input label="Minimum cards" type="number" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
+                <Input
+                  label="Price per card (₹)"
+                  type="number"
+                  value={cardAmount}
+                  onChange={(e) => setCardAmount(e.target.value)}
+                />
+
+                <Input
+                  label="Minimum cards"
+                  type="number"
+                  value={minCard}
+                  onChange={(e) => setMinCard(e.target.value)}
+                />
+              </div>
+
+              <div className="flex justify-end border-t pt-6">
+                <button
+                  type="button"
+                  onClick={handleSavePricing}
+                  disabled={saving}
+                  className={`px-6 py-2 rounded-lg font-medium flex items-center gap-2
+          ${
+            saving
+              ? "bg-indigo-400 cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-700"
+          } text-white`}
+                >
+                  {saving && (
+                    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  )}
+                  {saving ? "Saving..." : "Save Pricing"}
+                </button>
+              </div>
             </section>
           )}
         </div>
