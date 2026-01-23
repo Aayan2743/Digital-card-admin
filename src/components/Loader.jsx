@@ -1,22 +1,35 @@
+import { useEffect, useState } from "react";
+
 export default function Loader({ show, text = "Loading..." }) {
-  if (!show) return null;
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    let timer;
+
+    if (show) {
+      // show loader only if loading takes > 300ms
+      timer = setTimeout(() => setVisible(true), 300);
+    } else {
+      setVisible(false);
+    }
+
+    return () => clearTimeout(timer);
+  }, [show]);
+
+  if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30">
       <div className="flex flex-col items-center">
-        {/* Logo */}
-        <div className="h-20 w-20 rounded-full bg-white shadow-xl flex items-center justify-center animate-pulse">
+        <div className="h-16 w-16 rounded-full bg-white shadow-lg flex items-center justify-center">
           <img
             src="/logo.jpeg"
             alt="Loading"
-            className="h-12 w-12 object-contain animate-spin-slow"
+            className="h-10 w-10 object-contain animate-spin"
           />
         </div>
 
-        {/* Text */}
-        <p className="mt-4 text-white text-sm tracking-wide animate-fade">
-          {text}
-        </p>
+        <p className="mt-3 text-white text-sm tracking-wide">{text}</p>
       </div>
     </div>
   );

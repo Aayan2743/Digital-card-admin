@@ -1,60 +1,138 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ArrowLeft, Download, Settings } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
-
+import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../components/layout/AdminLayout";
-import AddCardsDrawer from "./AddCardsDrawer";
-
+import { useParams } from "react-router-dom";
 import api from "../../services/api";
 import { errorAlert } from "../../utils/alert";
+
+import AddCardsDrawer from "./AddCardsDrawer";
+
+/* ---------------- STATIC DATA ---------------- */
+
+// const organization = {
+//   id: 1,
+//   name: "Demo Organization",
+//   email: "demo@org.com",
+//   phone: "+91 99999 88888",
+//   logo: "/assets/logo-placeholder.png",
+//   cover: "/assets/cover-placeholder.png",
+//   total_cards: 100,
+//   active_cards: 45,
+//   inactive_cards: 55,
+// };
+
+// const transactionsData = [
+//   {
+//     id: 1,
+//     date: "2024-01-10",
+//     cards: 50,
+//     used: 2,
+//     expiry: "2024-02-10",
+//     status: "Active",
+//     amount: 2450,
+//     employees: [
+//       {
+//         id: 1,
+//         card_id: "CARD-001",
+//         name: "Rahul Sharma",
+//         email: "rahul@company.com",
+//         phone: "9876543210",
+//       },
+//       {
+//         id: 2,
+//         card_id: "CARD-002",
+//         name: "Anita Verma",
+//         email: "anita@company.com",
+//         phone: "9123456789",
+//       },
+//     ],
+//   },
+//   {
+//     id: 2,
+//     date: "2023-12-01",
+//     cards: 50,
+//     used: 0,
+//     expiry: "2023-12-31",
+//     status: "Expired",
+//     amount: 2450,
+//     employees: [],
+//   },
+// ];
 
 export default function OrganizationView() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [showAddCards, setShowAddCards] = useState(false);
 
-  const [showDrawer, setShowDrawer] = useState(false);
   const [organization, setOrganization] = useState(null);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  /* ---------------- FETCH ORG ---------------- */
-  const fetchOrganizationDetails = () => {
-    setLoading(true);
-    api
-      .get(`/organizations/${id}`)
-      .then((res) => {
-        setOrganization(res.data.data);
-      })
-      .catch(() => {
-        errorAlert("Error", "Failed to load organization");
-      })
-      .finally(() => setLoading(false));
+  const [orgLoading, setOrgLoading] = useState(true);
+  const [txLoading, setTxLoading] = useState(true);
+
+  const [showModal, setShowModal] = useState(false);
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
+
+  // const fetchOrganization = async () => {
+  //   try {
+  //     const res = await api.get(`/organizations/${id}`);
+  //     setOrganization(res.data.data);
+  //   } catch {
+  //     errorAlert("Error", "Failed to load organization");
+  //   }
+  // };
+
+  const fetchOrganization = async () => {
+    try {
+      setOrgLoading(true);
+      const res = await api.get(`/organizations/${id}`);
+      setOrganization(res.data.data);
+    } catch {
+      errorAlert("Error", "Failed to load organization");
+    } finally {
+      setOrgLoading(false);
+    }
+  };
+
+  // '/organizations/{organization}/subscription',
+  // const fetchTransactions = async () => {
+  //   try {
+  //     const res = await api.get(`/organizations/${id}/subscription`);
+  //     setTransactions(res.data.data);
+  //   } catch {
+  //     errorAlert("Error", "Failed to load transactions");
+  //   }
+  // };
+
+  const fetchTransactions = async () => {
+    try {
+      setTxLoading(true);
+      const res = await api.get(`/organizations/${id}/subscription`);
+      setTransactions(Array.isArray(res.data.data) ? res.data.data : []);
+    } catch {
+      errorAlert("Error", "Failed to load transactions");
+    } finally {
+      setTxLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchOrganizationDetails();
+    fetchOrganization();
+    fetchTransactions();
   }, [id]);
-
-  /* ---------------- TRANSACTIONS (UI ONLY) ---------------- */
-  const [transactions, setTransactions] = useState([]);
 
   /* ---------------- SEARCH & FILTER ---------------- */
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const ITEMS_PER_PAGE = 5;
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const daysLeft = (expiry) => {
-    const diff = new Date(expiry) - new Date();
-    return Math.max(Math.ceil(diff / (1000 * 60 * 60 * 24)), 0);
-  };
-
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
       const matchSearch =
-        tx.date?.includes(search) ||
-        tx.amount?.toString().includes(search) ||
-        tx.status?.toLowerCase().includes(search.toLowerCase());
+        tx.date.includes(search) ||
+        tx.amount.toString().includes(search) ||
+        tx.status.toLowerCase().includes(search.toLowerCase());
 
       const matchStatus = statusFilter === "all" || tx.status === statusFilter;
 
@@ -62,36 +140,7 @@ export default function OrganizationView() {
     });
   }, [transactions, search, statusFilter]);
 
-  const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
-
-  const paginatedTransactions = filteredTransactions.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE,
-  );
-
-  /* ---------------- EXPORT CSV ---------------- */
-  const exportCSV = () => {
-    const headers = ["Date", "Cards", "Expiry", "Status", "Amount"];
-    const rows = filteredTransactions.map((t) => [
-      t.date,
-      t.cards,
-      t.expiry,
-      t.status,
-      t.amount,
-    ]);
-
-    const csv =
-      "data:text/csv;charset=utf-8," +
-      [headers, ...rows].map((e) => e.join(",")).join("\n");
-
-    const link = document.createElement("a");
-    link.href = encodeURI(csv);
-    link.download = "transactions.csv";
-    link.click();
-  };
-
-  /* ---------------- LOADING GUARD ---------------- */
-  if (loading || !organization) {
+  if (orgLoading || !organization) {
     return (
       <AdminLayout>
         <div className="p-10 text-center text-gray-500">
@@ -114,16 +163,27 @@ export default function OrganizationView() {
 
       {/* HERO */}
       <div className="relative mb-20">
+        {/* <img
+          src={organization.cover || coverPic.jpg}
+          className="w-full h-56 object-cover rounded-2xl"
+        /> */}
+
         <img
-          src={organization.cover || "/assets/cover-placeholder.png"}
+          src={organization.cover || "/assets/coverPic.jpg"}
+          onError={(e) => (e.currentTarget.src = "/assets/coverPic.jpg")}
           className="w-full h-56 object-cover rounded-2xl"
         />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-2xl" />
-
         <div className="absolute left-6 -bottom-16 bg-white rounded-2xl shadow-xl p-4 flex gap-4">
+          {/* <img
+            src={organization.logo || logo.jpg}
+            className="w-20 h-20 rounded-xl border"
+          /> */}
+
           <img
-            src={organization.logo || "/assets/logo-placeholder.png"}
+            src={organization.logo || "/assets/logo.jpeg"}
+            onError={(e) => (e.currentTarget.src = "/assets/logo.jpeg")}
             className="w-20 h-20 rounded-xl border"
           />
           <div>
@@ -136,15 +196,15 @@ export default function OrganizationView() {
 
       {/* STATS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-        <StatCard label="Total Cards" value={organization.total_cards || 0} />
+        <StatCard label="Total Cards" value={organization.total_cards} />
         <StatCard
           label="Active Cards"
-          value={organization.active_cards || 0}
+          value={organization.active_cards}
           green
         />
         <StatCard
           label="Inactive Cards"
-          value={organization.inactive_cards || 0}
+          value={organization.inactive_cards}
           red
         />
       </div>
@@ -156,19 +216,13 @@ export default function OrganizationView() {
             type="text"
             placeholder="Search..."
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={(e) => setSearch(e.target.value)}
             className="border rounded-lg px-3 py-2 text-sm"
           />
 
           <select
             value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={(e) => setStatusFilter(e.target.value)}
             className="border rounded-lg px-3 py-2 text-sm"
           >
             <option value="all">All Status</option>
@@ -179,38 +233,86 @@ export default function OrganizationView() {
 
         <div className="flex gap-3">
           <button
+            onClick={() => setShowAddCards(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl shadow"
+          >
+            + Add Cards 
+          </button>
+
+          <button
             onClick={() =>
               navigate(
                 `/admin/organizations/${organization.id}/access-settings`,
               )
             }
-            className="flex items-center gap-2 border px-5 py-2 rounded-xl text-sm hover:bg-gray-50"
+            className="flex items-center gap-2 border px-5 py-2 rounded-xl text-sm"
           >
-            <Settings size={16} />
-            Access Settings
+            <Settings size={16} /> Access Settings
           </button>
-
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm hover:bg-gray-50"
-          >
+          <button className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm">
             <Download size={16} /> Export CSV
-          </button>
-
-          <button
-            onClick={() => setShowDrawer(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl shadow"
-          >
-            + Add Cards
           </button>
         </div>
       </div>
 
-      {showDrawer && (
+      {/* TABLE */}
+      <div className="bg-white rounded-2xl shadow overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-500">
+            <tr>
+              <th className="px-6 py-3 text-left">Date</th>
+              <th className="px-6 py-3 text-left">Cards</th>
+              <th className="px-6 py-3 text-left">Expiry</th>
+              <th className="px-6 py-3 text-left">Status</th>
+              <th className="px-6 py-3 text-left">Amount</th>
+              <th className="px-6 py-3 text-left">View Cards</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredTransactions.map((tx) => (
+              <tr key={tx.id} className="border-t">
+                <td className="px-6 py-4">{tx.date}</td>
+                <td className="px-6 py-4">{tx.cards}</td>
+                <td className="px-6 py-4">{tx.expiry}</td>
+                <td className="px-6 py-4">
+                  <span
+                    className={`px-2 py-1 rounded text-xs font-medium ${
+                      tx.status === "Active"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {tx.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4">₹{tx.amount}</td>
+                <td className="px-6 py-4">
+                  {tx.used > 0 ? (
+                    <button
+                      onClick={() => navigate(`/organizations/cards/${tx.id}`)}
+                      className="text-indigo-600 text-sm font-medium hover:underline"
+                    >
+                      View Cards ({tx.used})
+                    </button>
+                  ) : (
+                    <span className="text-gray-400 text-sm">No Cards</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* VIEW CARDS MODAL */}
+      {showAddCards && (
         <AddCardsDrawer
           organizationId={organization.id}
-          onClose={() => setShowDrawer(false)}
-          onSuccess={fetchOrganizationDetails}
+          onClose={() => setShowAddCards(false)}
+          onSuccess={() => {
+            fetchOrganization();
+            fetchTransactions();
+          }}
         />
       )}
     </AdminLayout>

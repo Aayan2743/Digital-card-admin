@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Layers,
@@ -9,18 +9,36 @@ import {
 } from "lucide-react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import { useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import api from "../../services/api";
 
 export default function OrganizationAccessSettings() {
   const navigate = useNavigate();
+  const { orgid } = useParams();
 
   /* ---------------- ORGANIZATION ---------------- */
-  const org = {
+  const org1 = {
     name: "ABC Corporation",
     email: "admin@abccorp.com",
     phone: "9876543210",
     logo: "https://via.placeholder.com/120",
     cover: "https://via.placeholder.com/1400x400",
   };
+
+  const [org, setOrg] = useState(null);
+
+  useEffect(() => {
+    const fetchOrg = async () => {
+      try {
+        const res = await api.get(`/organizations/${orgid}`);
+        setOrg(res.data.data.organization ?? res.data.data);
+      } catch {
+        alert("Failed to load organization");
+      }
+    };
+
+    fetchOrg();
+  }, [orgid]);
 
   /* ---------------- ACCESS STATE ---------------- */
   const [plan, setPlan] = useState("Pro");
@@ -50,6 +68,16 @@ export default function OrganizationAccessSettings() {
     alert("Organization access settings saved");
   };
 
+  if (!org) {
+    return (
+      <AdminLayout>
+        <div className="p-10 text-center text-gray-500">
+          Loading access settings...
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       {/* BACK */}
@@ -63,12 +91,15 @@ export default function OrganizationAccessSettings() {
 
       {/* HERO / ORG HEADER */}
       <div className="relative mb-24">
-        <img src={org.cover} className="w-full h-56 object-cover rounded-2xl" />
+        <img
+          src={org.cover || "/assets/coverPic.jpg"}
+          className="w-full h-56 object-cover rounded-2xl"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-2xl" />
 
         <div className="absolute left-6 -bottom-16 bg-white rounded-2xl shadow-xl p-5 flex items-center gap-4">
           <img
-            src={org.logo}
+            src={org.logo || "/assets/logo.jpeg"}
             className="w-20 h-20 rounded-xl border object-cover"
           />
           <div>
