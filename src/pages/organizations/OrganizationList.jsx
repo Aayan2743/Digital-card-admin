@@ -43,6 +43,26 @@ export default function OrganizationList() {
   //   setShowDrawer(false);
   // };
 
+  // const addOrganization = async (orgData) => {
+  //   try {
+  //     setLoading(true);
+  //     const res = await api.post("/organizations", orgData);
+
+  //     successAlert("Success", "Organization added successfully");
+  //     setShowDrawer(false);
+
+  //     // 🔄 Refresh list
+  //     fetchOrganizations();
+  //   } catch (error) {
+  //     errorAlert(
+  //       "Failed",
+  //       error.response?.data?.message || "Unable to add organization",
+  //     );
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const addOrganization = async (orgData) => {
     try {
       setLoading(true);
@@ -50,14 +70,20 @@ export default function OrganizationList() {
 
       successAlert("Success", "Organization added successfully");
       setShowDrawer(false);
-
-      // 🔄 Refresh list
       fetchOrganizations();
     } catch (error) {
-      errorAlert(
-        "Failed",
-        error.response?.data?.message || "Unable to add organization",
-      );
+      const data = error.response?.data;
+
+      let errorMessage = "Unable to add organization";
+
+      if (typeof data?.errors === "string") {
+        errorMessage = data.errors;
+      } else if (typeof data?.errors === "object") {
+        // Laravel-style validation errors
+        errorMessage = Object.values(data.errors)[0][0];
+      }
+
+      errorAlert("Failed", errorMessage);
     } finally {
       setLoading(false);
     }
