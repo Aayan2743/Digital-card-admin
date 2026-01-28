@@ -1,71 +1,109 @@
-// import { createContext, useContext, useEffect, useState } from "react";
+// import { createContext, useContext, useEffect, useRef, useState } from "react";
+// // import jwtDecode from "jwt-decode";
+// import { jwtDecode } from "jwt-decode";
 // import api from "../services/api";
 
 // const AuthContext = createContext();
 
+// const isTokenValid = (token) => {
+//   try {
+//     const decoded = jwtDecode(token);
+//     return decoded.exp * 1000 > Date.now();
+//   } catch {
+//     return false;
+//   }
+// };
+
 // export function AuthProvider({ children }) {
-//   const [user, setUser] = useState(null);
-//   const [branding, setBranding] = useState(null); // ✅ NEW
+//   const [user, setUser] = useState(() => {
+//     const cached = localStorage.getItem("admin_user");
+//     return cached ? JSON.parse(cached) : null;
+//   });
+
+//   const [branding, setBranding] = useState(() => {
+//     const cached = localStorage.getItem("branding");
+//     return cached ? JSON.parse(cached) : null;
+//   });
+
+//   const [cardPricing, setCardPricing] = useState(() => {
+//     const cached = localStorage.getItem("card_pricing");
+//     return cached ? JSON.parse(cached) : null;
+//   });
+
 //   const [loading, setLoading] = useState(true);
 
-//   /* ======================
-//      RESTORE LOGIN + BRANDING
-//   ====================== */
+//   // 🔒 Prevent duplicate calls (React 18 StrictMode safe)
+//   const hasFetched = useRef(false);
+
 //   useEffect(() => {
+//     if (hasFetched.current) return;
+//     hasFetched.current = true;
+
 //     const token =
 //       localStorage.getItem("token") || sessionStorage.getItem("token");
 
 //     const requests = [];
 
-//     // 🔐 Restore user session
-//     if (token) {
+//     // ✅ Call profile ONLY if token exists AND valid
+//     if (token && isTokenValid(token)) {
 //       requests.push(
-//         api.get("/profile").then((res) => {
-//           setUser(res.data.user);
-//           localStorage.setItem("admin_user", JSON.stringify(res.data.user));
+//         api
+//           .get("/profile")
+//           .then((res) => {
+//             setUser(res.data.user);
+//             localStorage.setItem("admin_user", JSON.stringify(res.data.user));
+//           })
+//           .catch(() => {
+//             localStorage.removeItem("token");
+//             sessionStorage.removeItem("token");
+//             setUser(null);
+//           }),
+//       );
+//     } else {
+//       // 🔐 Token expired or invalid
+//       localStorage.removeItem("token");
+//       sessionStorage.removeItem("token");
+//       setUser(null);
+//     }
+
+//     // 🎨 Branding fetch (safe)
+//     if (!branding) {
+//       requests.push(
+//         api.get("/public/settings/brand").then((res) => {
+//           setBranding(res.data.data);
+//           localStorage.setItem("branding", JSON.stringify(res.data.data));
 //         }),
 //       );
 //     }
 
-//     // 🎨 Fetch branding (PUBLIC / AUTH SAFE)
-//     requests.push(
-//       api
-//         .get("/public/settings/brand")
-//         .then((res) => {
-//           setBranding(res.data.data);
-
-//           // 🔖 Apply favicon globally
-//           if (res.data?.data?.favicon) {
-//             let link =
-//               document.querySelector("link[rel~='icon']") ||
-//               document.createElement("link");
-
-//             link.rel = "icon";
-//             link.href = res.data.data.favicon;
-//             document.head.appendChild(link);
-//           }
-//         })
-//         .catch(() => {
-//           setBranding(null);
+//     if (!cardPricing) {
+//       requests.push(
+//         api.get("/settings/card-pricing").then((res) => {
+//           setCardPricing(res.data.data);
+//           localStorage.setItem("card_pricing", JSON.stringify(res.data.data));
 //         }),
-//     );
+//       );
+//     }
 
 //     Promise.allSettled(requests).finally(() => {
 //       setLoading(false);
 //     });
 //   }, []);
 
-//   /* ======================
-//      LOGIN
-//   ====================== */
-//   const login = (userData) => {
+//   // 🔑 Login handler
+//   const login = (userData, token, remember = false) => {
+//     if (remember) {
+//       localStorage.setItem("token", token);
+//       localStorage.setItem("remember_me", "1");
+//     } else {
+//       sessionStorage.setItem("token", token);
+//     }
+
 //     localStorage.setItem("admin_user", JSON.stringify(userData));
 //     setUser(userData);
 //   };
 
-//   /* ======================
-//      LOGOUT
-//   ====================== */
+//   // 🚪 Logout handler
 //   const logout = async () => {
 //     try {
 //       await api.post("/logout");
@@ -74,19 +112,22 @@
 //     localStorage.removeItem("token");
 //     sessionStorage.removeItem("token");
 //     localStorage.removeItem("admin_user");
+//     localStorage.removeItem("branding");
 //     localStorage.removeItem("remember_me");
 
 //     setUser(null);
+//     setBranding(null);
 //   };
 
 //   return (
 //     <AuthContext.Provider
 //       value={{
 //         user,
-//         branding, // ✅ EXPOSE BRANDING
+//         branding,
+//         loading,
+//         cardPricing,
 //         login,
 //         logout,
-//         loading,
 //         isAuthenticated: !!user,
 //       }}
 //     >
@@ -97,67 +138,121 @@
 
 // export const useAuth = () => useContext(AuthContext);
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { jwtDecode } from "jwt-decode";
 import api from "../services/api";
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+/* ================= TOKEN VALIDATION ================= */
+const isTokenValid = (token) => {
+  try {
+    const decoded = jwtDecode(token);
+    return decoded.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+};
 
-  // 👇 Load cached branding instantly
+export function AuthProvider({ children }) {
+  /* ================= STATE ================= */
+  const [user, setUser] = useState(() => {
+    const cached = localStorage.getItem("admin_user");
+    return cached ? JSON.parse(cached) : null;
+  });
+
   const [branding, setBranding] = useState(() => {
     const cached = localStorage.getItem("branding");
     return cached ? JSON.parse(cached) : null;
   });
 
+  const [cardPricing, setCardPricing] = useState(() => {
+    const cached = localStorage.getItem("card_pricing");
+    return cached ? JSON.parse(cached) : null;
+  });
+
   const [loading, setLoading] = useState(true);
 
+  // 🔒 Prevent duplicate bootstrap calls (StrictMode safe)
+  const hasFetched = useRef(false);
+
+  /* ================= BOOTSTRAP ================= */
   useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     const token =
       localStorage.getItem("token") || sessionStorage.getItem("token");
 
     const requests = [];
 
-    // Restore session
-    if (token) {
+    /* ---------- PROFILE ---------- */
+    if (token && isTokenValid(token)) {
+      // Only fetch profile if not already cached
+      if (!user) {
+        requests.push(
+          api
+            .get("/profile")
+            .then((res) => {
+              setUser(res.data.user);
+              localStorage.setItem("admin_user", JSON.stringify(res.data.user));
+            })
+            .catch(() => {
+              localStorage.removeItem("token");
+              sessionStorage.removeItem("token");
+              localStorage.removeItem("admin_user");
+              setUser(null);
+            }),
+        );
+      }
+    } else {
+      localStorage.removeItem("token");
+      sessionStorage.removeItem("token");
+      localStorage.removeItem("admin_user");
+      setUser(null);
+    }
+
+    /* ---------- BRANDING ---------- */
+    if (!branding) {
       requests.push(
-        api.get("/profile").then((res) => {
-          setUser(res.data.user);
-          localStorage.setItem("admin_user", JSON.stringify(res.data.user));
+        api.get("/public/settings/brand").then((res) => {
+          setBranding(res.data.data);
+          localStorage.setItem("branding", JSON.stringify(res.data.data));
         }),
       );
     }
 
-    // Fetch latest branding (background refresh)
-    requests.push(
-      api.get("/public/settings/brand").then((res) => {
-        setBranding(res.data.data);
-        localStorage.setItem("branding", JSON.stringify(res.data.data));
-
-        // Apply favicon immediately
-        if (res.data?.data?.favicon) {
-          let link =
-            document.querySelector("link[rel~='icon']") ||
-            document.createElement("link");
-
-          link.rel = "icon";
-          link.href = res.data.data.favicon;
-          document.head.appendChild(link);
-        }
-      }),
-    );
+    /* ---------- CARD PRICING ---------- */
+    if (!cardPricing) {
+      requests.push(
+        api.get("/settings/card-pricing").then((res) => {
+          setCardPricing(res.data.data);
+          localStorage.setItem("card_pricing", JSON.stringify(res.data.data));
+        }),
+      );
+    }
 
     Promise.allSettled(requests).finally(() => {
       setLoading(false);
     });
   }, []);
 
-  const login = (userData) => {
+  /* ================= LOGIN ================= */
+  const login = (userData, token, remember = false) => {
+    if (remember) {
+      localStorage.setItem("token", token);
+      localStorage.setItem("remember_me", "1");
+      sessionStorage.removeItem("token");
+    } else {
+      sessionStorage.setItem("token", token);
+      localStorage.removeItem("token");
+    }
+
     localStorage.setItem("admin_user", JSON.stringify(userData));
     setUser(userData);
   };
 
+  /* ================= LOGOUT ================= */
   const logout = async () => {
     try {
       await api.post("/logout");
@@ -166,21 +261,25 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("token");
     sessionStorage.removeItem("token");
     localStorage.removeItem("admin_user");
-    localStorage.removeItem("remember_me");
     localStorage.removeItem("branding");
+    localStorage.removeItem("card_pricing");
+    localStorage.removeItem("remember_me");
 
     setUser(null);
     setBranding(null);
+    setCardPricing(null);
   };
 
+  /* ================= PROVIDER ================= */
   return (
     <AuthContext.Provider
       value={{
         user,
         branding,
+        cardPricing,
+        loading,
         login,
         logout,
-        loading,
         isAuthenticated: !!user,
       }}
     >
@@ -189,4 +288,5 @@ export function AuthProvider({ children }) {
   );
 }
 
+/* ================= HOOK ================= */
 export const useAuth = () => useContext(AuthContext);

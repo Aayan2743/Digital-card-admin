@@ -9,11 +9,17 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import { successAlert, errorAlert } from "../../utils/alert";
-
-const CARD_PRICE = 49;
+import { useAuth } from "../../context/AuthContext";
 
 export default function AddCardsDrawer({ organizationId, onClose, onSuccess }) {
-  const [cards, setCards] = useState(10);
+  const { cardPricing } = useAuth();
+  // console.log("Card Pricing from AuthContext:", cardPricing);
+
+  const CARD_PRICE = cardPricing?.card_amount || 49;
+  //min_card
+  alert(cardPricing.min_card);
+
+  const [cards, setCards] = useState(cardPricing.min_card || 10);
   const [days] = useState(30);
   const [paymentType, setPaymentType] = useState("online");
   const [paymentMethod, setPaymentMethod] = useState("upi");

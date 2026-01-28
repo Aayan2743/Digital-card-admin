@@ -31,17 +31,20 @@ export default function Login() {
         password,
       });
 
+      localStorage.setItem("token", res.data.token);
       // ✅ STORE TOKEN BASED ON REMEMBER ME
-      if (rememberMe) {
-        localStorage.setItem("token", res.data.token);
-        sessionStorage.removeItem("token");
-      } else {
-        sessionStorage.setItem("token", res.data.token);
-        localStorage.removeItem("token");
-      }
+      // if (rememberMe) {
+      //   localStorage.setItem("token", res.data.token);
+      //   sessionStorage.removeItem("token");
+      // } else {
+      //   sessionStorage.setItem("token", res.data.token);
+      //   localStorage.removeItem("token");
+      // }
 
       // ✅ Save user in context
-      login(res.data.user);
+      // login(res.data.user);
+
+      login(res.data.user, res.data.token, rememberMe);
 
       successAlert("Login Successful", "Welcome back!");
       navigate("/");

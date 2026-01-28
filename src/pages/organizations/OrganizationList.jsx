@@ -6,62 +6,14 @@ import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { successAlert, errorAlert } from "../../utils/alert";
 import Loader from "../../components/Loader";
+import { useAuth } from "../../context/AuthContext";
 
 export default function OrganizationList() {
   const [showDrawer, setShowDrawer] = useState(false);
   const navigate = useNavigate();
-
-  // ✅ SAMPLE DATA (DEFAULT)
-  // const [organizations, setOrganizations] = useState([
-  //   {
-  //     id: 1,
-  //     name: "ABC Corp",
-  //     created_at: "2025-01-10",
-  //     email: "abc@corp.com",
-  //     phone: "9876543210",
-  //     totalCards: 50,
-  //     activeCards: 30,
-  //     inactiveCards: 20,
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "XYZ Solutions",
-  //     created_at: "2025-01-12",
-  //     email: "xyz@solutions.com",
-  //     phone: "9123456789",
-  //     totalCards: 20,
-  //     activeCards: 10,
-  //     inactiveCards: 10,
-  //   },
-  // ]);
-
+  const { loading: authLoading } = useAuth();
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // const addOrganization = (org) => {
-  //   setOrganizations((prev) => [...prev, org]);
-  //   setShowDrawer(false);
-  // };
-
-  // const addOrganization = async (orgData) => {
-  //   try {
-  //     setLoading(true);
-  //     const res = await api.post("/organizations", orgData);
-
-  //     successAlert("Success", "Organization added successfully");
-  //     setShowDrawer(false);
-
-  //     // 🔄 Refresh list
-  //     fetchOrganizations();
-  //   } catch (error) {
-  //     errorAlert(
-  //       "Failed",
-  //       error.response?.data?.message || "Unable to add organization",
-  //     );
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const addOrganization = async (orgData) => {
     try {
@@ -103,8 +55,9 @@ export default function OrganizationList() {
   };
 
   useEffect(() => {
+    if (authLoading) return;
     fetchOrganizations();
-  }, []);
+  }, [authLoading]);
 
   return (
     <AdminLayout>

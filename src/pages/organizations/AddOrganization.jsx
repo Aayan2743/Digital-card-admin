@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
+import { successAlert, errorAlert } from "../../utils/alert";
 
 export default function AddOrganization({ onClose, onSave }) {
   const [name, setName] = useState("");
@@ -8,7 +9,20 @@ export default function AddOrganization({ onClose, onSave }) {
 
   const saveOrg = () => {
     if (!name || !email) {
-      alert("Name and Email are required");
+      errorAlert("Required", "Name and Email are required");
+      //alert("Name and Email are required");
+      return;
+    }
+
+    const phoneRegex = /^[6-9]\d{9}$/;
+
+    if (!phoneRegex.test(phone)) {
+      errorAlert(
+        "Invalid",
+        "Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9",
+      );
+      //
+      //alert("Enter a valid 10-digit mobile number starting with 6, 7, 8, or 9");
       return;
     }
 
@@ -85,6 +99,7 @@ export default function AddOrganization({ onClose, onSave }) {
               Phone Number
             </label>
             <input
+              type="number"
               className="w-full rounded-xl border border-gray-300 px-4 py-2.5
                          focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               placeholder="+91 98765 43210"

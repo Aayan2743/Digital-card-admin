@@ -3,11 +3,14 @@ import { useEffect, useState } from "react";
 import AdminLayout from "../../components/layout/AdminLayout";
 import api from "../../services/api";
 import { successAlert, errorAlert } from "../../utils/alert";
+import { useAuth } from "../../context/AuthContext";
 
 import Loader from "../../components/Loader";
 import { setFavicon, resetFavicon } from "../../utils/favicon";
 
 export default function Settings() {
+  const { user, branding, cardPricing } = useAuth();
+
   const [activeTab, setActiveTab] = useState("profile");
 
   const [loading, setLoading] = useState(false);
@@ -42,21 +45,31 @@ export default function Settings() {
      FETCH PROFILE
   ====================== */
   useEffect(() => {
-    setProfileLoading(true);
+    if (!user) return;
 
-    api
-      .get("/profile")
-      .then((res) => {
-        setName(res.data.user.name);
-        setEmail(res.data.user.email);
-      })
-      .catch(() => {
-        errorAlert("Error", "Failed to load profile");
-      })
-      .finally(() => {
-        setProfileLoading(false);
-      });
-  }, []);
+    setName(user.name || "");
+    setEmail(user.email || "");
+    setProfileLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    if (!branding) return;
+
+    setBrandName(branding.brand_name || "");
+    setLogoPreview(branding.logo || null);
+    setFaviconPreview(branding.favicon || null);
+
+    if (branding.favicon) {
+      setFavicon(branding.favicon);
+    }
+  }, [branding]);
+
+  useEffect(() => {
+    if (!cardPricing) return;
+
+    setCardAmount(cardPricing.card_amount || "");
+    setMinCard(cardPricing.min_card || "");
+  }, [cardPricing]);
 
   /* ======================
      SAVE PROFILE
@@ -79,6 +92,9 @@ export default function Settings() {
       });
 
       successAlert("Profile Updated", "Profile updated successfully");
+
+      const updatedUser = { ...user, name, email };
+      localStorage.setItem("admin_user", JSON.stringify(updatedUser));
       setPassword("");
       setConfirmPassword("");
     } catch (e) {
@@ -117,7 +133,18 @@ export default function Settings() {
       successAlert("Saved", "Branding updated successfully");
 
       // 🔄 Refresh branding after save
-      fetchBranding();
+      // fetchBranding();
+
+      const res = await api.get("/public/settings/brand");
+      localStorage.setItem("branding", JSON.stringify(res.data.data));
+
+      setBrandName(res.data.data.brand_name || "");
+      setLogoPreview(res.data.data.logo || null);
+      setFaviconPreview(res.data.data.favicon || null);
+
+      if (res.data.data.favicon) {
+        setFavicon(res.data.data.favicon);
+      }
     } catch (error) {
       errorAlert(
         "Failed",
@@ -151,22 +178,22 @@ export default function Settings() {
     }
   };
 
-  const fetchCardPricing = async () => {
-    try {
-      // setLoading(true);
+  // const fetchCardPricing = async () => {
+  //   try {
+  //     // setLoading(true);
 
-      const res = await api.get("/settings/card-pricing");
+  //     const res = await api.get("/settings/card-pricing");
 
-      if (res.data.data) {
-        setCardAmount(res.data.data.card_amount || "");
-        setMinCard(res.data.data.min_card || "");
-      }
-    } catch (error) {
-      errorAlert("Error", "Failed to load card pricing");
-    } finally {
-      // setLoading(false);
-    }
-  };
+  //     if (res.data.data) {
+  //       setCardAmount(res.data.data.card_amount || "");
+  //       setMinCard(res.data.data.min_card || "");
+  //     }
+  //   } catch (error) {
+  //     errorAlert("Error", "Failed to load card pricing");
+  //   } finally {
+  //     // setLoading(false);
+  //   }
+  // };
 
   const handleSavePricing = async () => {
     try {
@@ -178,7 +205,12 @@ export default function Settings() {
       });
 
       successAlert("Saved", "Card pricing updated successfully");
-      fetchCardPricing();
+      const updatedPricing = {
+        card_amount: cardAmount,
+        min_card: minCard,
+      };
+
+      localStorage.setItem("card_pricing", JSON.stringify(updatedPricing));
     } catch (error) {
       errorAlert(
         "Failed",
@@ -201,17 +233,17 @@ export default function Settings() {
     document.head.appendChild(link);
   }, [faviconPreview]);
 
-  useEffect(() => {
-    if (activeTab === "branding") {
-      fetchBranding();
-    }
-  }, [activeTab]);
+  // useEffect(() => {
+  //   if (activeTab === "branding") {
+  //     fetchBranding();
+  //   }
+  // }, [activeTab]);
 
-  useEffect(() => {
-    if (activeTab === "pricing") {
-      fetchCardPricing();
-    }
-  }, [activeTab]);
+  // useEffect(() => {
+  //   if (activeTab === "pricing") {
+  //     fetchCardPricing();
+  //   }
+  // }, [activeTab]);
 
   return (
     <AdminLayout>

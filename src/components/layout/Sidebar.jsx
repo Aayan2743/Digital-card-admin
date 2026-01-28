@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const menu = [
   { name: "Dashboard", path: "/", icon: "🏠" },
@@ -8,20 +9,27 @@ const menu = [
 ];
 
 export default function Sidebar() {
+  const { user, branding } = useAuth();
+
   return (
     <aside className="fixed inset-y-0 left-0 w-64 bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl z-40">
       <div className="h-full flex flex-col">
         {/* Brand */}
         <div className="px-6 py-5 border-b border-white/10 flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center shadow overflow-hidden">
-            <img src="/logo.jpeg" alt="Logo" className="h-7 object-contain" />
+            <img
+              src={branding?.logo || "/logo.jpeg"}
+              alt="Logo"
+              className="h-7 object-contain"
+            />
           </div>
 
           <div className="leading-tight">
             <h1 className="text-lg font-extrabold tracking-wide">
-              Brand Crest <span className="text-indigo-400">Digital</span>
+              {branding?.brand_name || "One Desk"}{" "}
+              <span className="text-indigo-400">Digital</span>
             </h1>
-            <p className="text-xs text-white/60">Organization</p>
+            <p className="text-xs text-white/60">{user?.role || "AAA"}</p>
           </div>
         </div>
 
@@ -48,7 +56,8 @@ export default function Sidebar() {
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-white/10 text-xs text-white/60">
-          © 2026 Brand Crest Digital
+          © 2026 {branding?.brand_name || "One Desk Digital"}. All rights
+          reserved.
         </div>
       </div>
     </aside>
